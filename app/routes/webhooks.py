@@ -1,6 +1,12 @@
 from fastapi import APIRouter, Request, HTTPException
 from app import settings
-from app.webhooks.utils import extract_webhook_data, verify_signature, verify_timestamp
+from app.webhooks import (
+    extract_webhook_data,
+    verify_signature,
+    verify_timestamp,
+    events,
+    WebhookMeta
+)
 from app.schemas.webhooks import (
     OrderCreatedWebhook,
     OrderUpdatedWebhook,
@@ -12,47 +18,40 @@ from app.schemas.webhooks import (
 router = APIRouter()
 
 
-async def handle_webhook(request: Request, secret: str, webhook_name: str, model=None):
+async def handle_webhook(request: Request, secret: str, event_name: str, model=None):
     """
-    Generic webhook handler to reduce repeated code.
+    Generic webhook handler for all events.
     If a Pydantic model is provided, parse the JSON into the model.
     """
     timestamp, signature, body = await extract_webhook_data(request)
 
-    # Verify timestamp and signature
     verify_timestamp(timestamp)
     verify_signature(secret, timestamp, body, signature)
 
-    # Parse JSON
     try:
         json_body = body.decode("utf-8")
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
-    # Validate with Pydantic model if provided
     if model:
-        try:
-            payload = model.parse_raw(body)
-        except Exception as e:
-            raise HTTPException(status_code=422, detail=f"Invalid payload: {e}")
-        print(f"{webhook_name} Webhook:", payload)
+        payload = model.parse_raw(body)
     else:
         payload = json_body
-        print(f"{webhook_name} Webhook:", payload)
 
-    return {"message": f"{webhook_name} webhook received and verified", "data": payload}
+    event_payload = getattr(payload, "data", payload)
 
+    meta: WebhookMeta = {"timestamp": timestamp, "event": event_name}
+    await events.dispatch(event_name, event_payload, meta)
 
-# ----------------------------
-# Webhook routes
-# ----------------------------
+    return {"message": f"{event_name} webhook received and verified", "data": payload}
+
 
 @router.post("/order-created")
 async def order_created_webhook(request: Request):
     return await handle_webhook(
         request,
         secret=settings.settings.CREATE_ORDER_WEBHOOK_SECRET,
-        webhook_name="Order Created",
+        event_name="order.created",
         model=OrderCreatedWebhook
     )
 
@@ -62,17 +61,17 @@ async def order_updated_webhook(request: Request):
     return await handle_webhook(
         request,
         secret=settings.settings.UPDATE_ORDER_WEBHOOK_SECRET,
-        webhook_name="Order Updated",
+        event_name="order.updated",
         model=OrderUpdatedWebhook
     )
 
 
-@router.post("/order-cancel")
-async def order_cancel_webhook(request: Request):
+@router.post("/order-cancelled")
+async def order_cancelled_webhook(request: Request):
     return await handle_webhook(
         request,
         secret=settings.settings.CANCEL_ORDER_WEBHOOK_SECRET,
-        webhook_name="Order Cancel",
+        event_name="order.cancelled",
         model=OrderCancelledWebhook
     )
 
@@ -82,7 +81,7 @@ async def payment_successful_webhook(request: Request):
     return await handle_webhook(
         request,
         secret=settings.settings.PAYMENT_SUCCESSFUL_WEBHOOK_SECRET,
-        webhook_name="Payment Successful",
+        event_name="payment.successful",
         model=PaymentSuccessfulWebhook
     )
 
@@ -92,6 +91,6 @@ async def payment_failed_webhook(request: Request):
     return await handle_webhook(
         request,
         secret=settings.settings.PAYMENT_FAILED_WEBHOOK_SECRET,
-        webhook_name="Payment Failed",
+        event_name="payment.failed",
         model=PaymentFailedWebhook
     )
