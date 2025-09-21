@@ -1,5 +1,3 @@
-# Ghala Webhooks Service
-
 A **Python FastAPI project** for handling Ghala webhooks, validating requests with HMAC signatures, and processing order and payment events. Built with **FastAPI**, **Pydantic**, and **async utilities** for high performance.
 
 ---
