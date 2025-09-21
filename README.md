@@ -95,7 +95,7 @@ ngrok http 8000
 | ------ | --------------------------------- | ------------------------------ |
 | POST   | /ghala/webhook/order-created      | Handle order creation webhook  |
 | POST   | /ghala/webhook/order-updated      | Handle order update webhook    |
-| POST   | /ghala/webhook/order-cancel       | Handle order cancellation      |
+| POST   | /ghala/webhook/order-cancelled    | Handle order cancellation      |
 | POST   | /ghala/webhook/payment-successful | Handle payment success webhook |
 | POST   | /ghala/webhook/payment-failed     | Handle payment failed webhook  |
 
