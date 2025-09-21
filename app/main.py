@@ -11,7 +11,7 @@ app = FastAPI(
     version=settings.APP_VERSION,
     docs_url=None,
     redoc_url=settings.REDOC_URL,
-    openapi_url="/openapi.json"
+    openapi_url="/openapi.json",
 )
 
 app.include_router(webhooks.router)
