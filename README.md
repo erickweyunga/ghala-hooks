@@ -14,6 +14,7 @@ A **Python FastAPI project** for handling Ghala webhooks, validating requests wi
 * [API Endpoints](#api-endpoints)
 * [Schemas](#schemas)
 * [Testing Webhooks](#testing-webhooks)
+* [Project Structure](#project-structure)
 * [License](#license)
 
 ---
@@ -23,9 +24,10 @@ A **Python FastAPI project** for handling Ghala webhooks, validating requests wi
 * Validate Ghala webhook requests using **HMAC SHA256 signatures**
 * Protect against **replay attacks** with timestamp validation
 * Structured Pydantic models for webhook payloads
-* Generic webhook handler to reduce code duplication
-* Ready for future webhook endpoints
+* Generic webhook handler to simplify endpoint creation
+* Ready for adding new webhook events
 * Easy environment configuration with `.env`
+* Supports plugin-based event handling
 
 ---
 
@@ -42,7 +44,7 @@ A **Python FastAPI project** for handling Ghala webhooks, validating requests wi
 
 ```bash
 # Clone the repository
-git clone https://github.com/erickweyunga/ghala-webhook-integration-fastapi-python
+git clone https://github.com/erickweyunga/ghala-hooks
 cd python-webhooks
 
 # Create a virtual environment
@@ -134,13 +136,14 @@ Shared models include:
 
 ```
 app/
-├─ main.py                 # FastAPI app entry
-├─ routes/
-│  └─ webhooks.py          # Webhook routes & handler
-├─ webhooks/
+├─ main.py                 # FastAPI app entry point
+├─routes/
+│  └─ webhooks.py          # Webhook routes & generic handler
+├─webhooks/
 │  └─ utils.py             # Signature & timestamp verification
-├─ schemas/
+├─schemas/
 │  └─ webhooks.py          # Pydantic models
-├─ settings.py             # Environment settings
+├─plugins/                 # Optional event plugins
+├─settings.py              # Environment configuration
 requirements.txt
 ```
