@@ -1,12 +1,17 @@
 from fastapi import FastAPI
 from app.routes import webhooks
-import pkgutil
-import importlib
-import app.plugins
+from app.settings import settings
+from app.webhooks.loader import load_plugins
 
-for loader, module_name, is_pkg in pkgutil.iter_modules(app.plugins.__path__):
-    importlib.import_module(f"app.plugins.{module_name}")
+load_plugins(settings.PLUGIN_PATH)
 
-app = FastAPI(title="Ghala Webhooks API")
+app = FastAPI(
+    title=settings.APP_NAME,
+    description=settings.APP_DESCRIPTION,
+    version=settings.APP_VERSION,
+    docs_url=None,
+    redoc_url=settings.REDOC_URL,
+    openapi_url="/openapi.json"
+)
 
-app.include_router(webhooks.router, prefix="/ghala/webhook", tags=["Webhooks"])
+app.include_router(webhooks.router)

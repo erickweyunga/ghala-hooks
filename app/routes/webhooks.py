@@ -13,18 +13,41 @@ from app.schemas.webhooks import (
     OrderCancelledWebhook,
     PaymentSuccessfulWebhook,
     PaymentFailedWebhook,
+    WebhookResponse,
 )
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/ghala/webhook",
+    tags=["Webhooks"],
+    responses={404: {"description": "Not found"}},
+)
 
-
-async def handle_webhook(request: Request, secret: str, event_name: str, model=None):
+async def handle_webhook(request: Request, secret: str, event_name: str, model=None) -> WebhookResponse:
     """
-    Generic webhook handler for all events.
-    If a Pydantic model is provided, parse the JSON into the model.
+    Generic webhook handler for all Ghala events.
+
+    This function:
+    1. Extracts timestamp, signature, and body from the request.
+    2. Verifies the timestamp and HMAC signature.
+    3. Parses the payload using a Pydantic model if provided.
+    4. Dispatches the event to any registered plugin handlers.
+    5. Returns a standardized acknowledgment.
+
+    Args:
+        request (Request): FastAPI request object.
+        secret (str): Webhook secret for signature verification.
+        event_name (str): Name of the event to dispatch, e.g., "order.created".
+        model (Optional[PydanticModel]): Optional Pydantic model to parse the request body.
+
+    Returns:
+        WebhookResponse: Standard acknowledgment response.
+
+    Raises:
+        HTTPException: If JSON is invalid or payload fails validation.
     """
     timestamp, signature, body = await extract_webhook_data(request)
 
+    # Verify request authenticity
     verify_timestamp(timestamp)
     verify_signature(secret, timestamp, body, signature)
 
@@ -33,21 +56,37 @@ async def handle_webhook(request: Request, secret: str, event_name: str, model=N
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
+    # Parse payload with Pydantic model if provided
     if model:
-        payload = model.parse_raw(body)
+        try:
+            payload = model.parse_raw(body)
+        except Exception as e:
+            raise HTTPException(status_code=422, detail=f"Invalid payload: {e}")
     else:
         payload = json_body
 
+    # Extract actual event data
     event_payload = getattr(payload, "data", payload)
-
     meta: WebhookMeta = {"timestamp": timestamp, "event": event_name}
+
+    # Dispatch event to plugins
     await events.dispatch(event_name, event_payload, meta)
 
-    return {"message": f"{event_name} webhook received and verified", "data": payload}
+    # Return acknowledgment
+    return WebhookResponse(message=f"{event_name} webhook received and verified")
 
 
-@router.post("/order-created")
-async def order_created_webhook(request: Request):
+@router.post("/order-created", response_model=WebhookResponse)
+async def order_created(request: Request):
+    """
+    Handle 'order.created' webhook.
+
+    Args:
+        request (Request): Incoming HTTP request from Ghala.
+
+    Returns:
+        WebhookResponse: Confirmation of successful processing.
+    """
     return await handle_webhook(
         request,
         secret=settings.settings.CREATE_ORDER_WEBHOOK_SECRET,
@@ -56,8 +95,17 @@ async def order_created_webhook(request: Request):
     )
 
 
-@router.post("/order-updated")
-async def order_updated_webhook(request: Request):
+@router.post("/order-updated", response_model=WebhookResponse)
+async def order_updated(request: Request):
+    """
+    Handle 'order.updated' webhook.
+
+    Args:
+        request (Request): Incoming HTTP request from Ghala.
+
+    Returns:
+        WebhookResponse: Confirmation of successful processing.
+    """
     return await handle_webhook(
         request,
         secret=settings.settings.UPDATE_ORDER_WEBHOOK_SECRET,
@@ -66,8 +114,17 @@ async def order_updated_webhook(request: Request):
     )
 
 
-@router.post("/order-cancelled")
-async def order_cancelled_webhook(request: Request):
+@router.post("/order-cancelled", response_model=WebhookResponse)
+async def order_cancelled(request: Request):
+    """
+    Handle 'order.cancelled' webhook.
+
+    Args:
+        request (Request): Incoming HTTP request from Ghala.
+
+    Returns:
+        WebhookResponse: Confirmation of successful processing.
+    """
     return await handle_webhook(
         request,
         secret=settings.settings.CANCEL_ORDER_WEBHOOK_SECRET,
@@ -76,8 +133,17 @@ async def order_cancelled_webhook(request: Request):
     )
 
 
-@router.post("/payment-successful")
-async def payment_successful_webhook(request: Request):
+@router.post("/payment-successful", response_model=WebhookResponse)
+async def payment_successful(request: Request):
+    """
+    Handle 'payment.successful' webhook.
+
+    Args:
+        request (Request): Incoming HTTP request from Ghala.
+
+    Returns:
+        WebhookResponse: Confirmation of successful processing.
+    """
     return await handle_webhook(
         request,
         secret=settings.settings.PAYMENT_SUCCESSFUL_WEBHOOK_SECRET,
@@ -86,8 +152,17 @@ async def payment_successful_webhook(request: Request):
     )
 
 
-@router.post("/payment-failed")
-async def payment_failed_webhook(request: Request):
+@router.post("/payment-failed", response_model=WebhookResponse)
+async def payment_failed(request: Request):
+    """
+    Handle 'payment.failed' webhook.
+
+    Args:
+        request (Request): Incoming HTTP request from Ghala.
+
+    Returns:
+        WebhookResponse: Confirmation of successful processing.
+    """
     return await handle_webhook(
         request,
         secret=settings.settings.PAYMENT_FAILED_WEBHOOK_SECRET,

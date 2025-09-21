@@ -91,3 +91,7 @@ class PaymentFailedWebhook(BaseModel):
 
     class Config:
         extra = "ignore"
+
+class WebhookResponse(BaseModel):
+    message: str
+    status: str = "ok"
